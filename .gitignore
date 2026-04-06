@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Data
+*.xlsx
+*.csv
+*.jsonl
+
+# Models
+*.pt
+*.bin
+
+# Env
+venv/
+.env
+
+# System
+.DS_Store
