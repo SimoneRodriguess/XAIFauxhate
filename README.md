@@ -4,7 +4,7 @@ HateMirage is an explainable NLP system for detecting **Faux Hate**: a subtle fo
 
 ---
 
-## 🧠 Pipeline
+## Pipeline
 
 **Input:** comment `c`
 
@@ -29,7 +29,7 @@ HateMirage is an explainable NLP system for detecting **Faux Hate**: a subtle fo
 
 ---
 
-## 🏗 Code Structure
+## Code Structure
 
 - `graph_builder.py` → builds graph from embeddings  
 - `model.py` → GNN + 3 heads  
@@ -40,7 +40,7 @@ HateMirage is an explainable NLP system for detecting **Faux Hate**: a subtle fo
 
 ---
 
-## 📊 Results (Current)
+## Results (Current)
 
 - Trained on: **80 samples**  
 - Tested on: **20 samples**  
@@ -59,7 +59,7 @@ HateMirage is an explainable NLP system for detecting **Faux Hate**: a subtle fo
 
 ---
 
-## 💡 Core Idea
+## Core Idea
 
 Structured reasoning first (Target → Intent → Implication),  
 instead of generating explanations independently → **more grounded, explainable outputs**.
