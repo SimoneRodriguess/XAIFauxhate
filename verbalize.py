@@ -2,13 +2,13 @@ import torch
 import json
 import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-from sentence_transformers import SentenceTransformer
+from hinglish_encoder import HingBERTEncoder
 from model import GNNClassifier
 
 TAXONOMY_PATH = '/home/imone/hatemirage/taxonomy.json'
 GRAPH_PATH = '/home/imone/hatemirage/graph.pt'
 MODEL_PATH = '/home/imone/hatemirage/model.pt'
-SBERT_MODEL = 'sentence-transformers/all-mpnet-base-v2'
+SBERT_MODEL = '/home/imone/hatemirage/hinglish_bert_finetuned'
 PHI3_MODEL = 'microsoft/Phi-3-mini-4k-instruct'
 HIDDEN_DIM = 256
 TARGET_THRESHOLD = 0.4
@@ -28,7 +28,7 @@ n_intent = taxonomy['n_intent_clusters']
 n_implication = taxonomy['n_implication_clusters']
 
 print("Loading GNN...")
-encoder = SentenceTransformer(SBERT_MODEL)
+encoder = HingBERTEncoder(model_name=SBERT_MODEL)
 data = torch.load(GRAPH_PATH, weights_only=False).to(device)
 gnn = GNNClassifier(data.x.shape[1], HIDDEN_DIM, n_targets, n_intent, n_implication)
 gnn.load_state_dict(torch.load(MODEL_PATH, map_location=device))
