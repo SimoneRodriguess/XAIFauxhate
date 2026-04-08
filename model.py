@@ -1,29 +1,43 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import HeteroConv, SAGEConv
 
 class GNNClassifier(nn.Module):
-    def __init__(self, in_dim, hidden_dim, n_targets, n_intent_clusters, n_implication_clusters):
+    def __init__(self, hidden_dim, n_targets, n_intent, n_impl):
         super().__init__()
-        self.conv1 = SAGEConv(in_dim, hidden_dim)
-        self.conv2 = SAGEConv(hidden_dim, hidden_dim)
+        # lazy init (-1) handles mixed input dims across node types
+        self.conv1 = HeteroConv({
+            ('comment', 'sim', 'comment'):       SAGEConv(-1, hidden_dim),
+            ('topic', 'about_rev', 'comment'):   SAGEConv(-1, hidden_dim),
+            ('claim', 'targets_rev', 'comment'): SAGEConv(-1, hidden_dim),
+        }, aggr='sum')
+        self.conv2 = HeteroConv({
+            ('comment', 'sim', 'comment'):       SAGEConv(-1, hidden_dim),
+            ('topic', 'about_rev', 'comment'):   SAGEConv(-1, hidden_dim),
+            ('claim', 'targets_rev', 'comment'): SAGEConv(-1, hidden_dim),
+        }, aggr='sum')
+        self.target_head      = nn.Linear(hidden_dim, n_targets)
+        self.intent_head      = nn.Linear(hidden_dim, n_intent)
+        self.implication_head = nn.Linear(hidden_dim + n_targets + n_intent, n_impl)
 
-        self.target_head = nn.Linear(hidden_dim, n_targets)
-        self.intent_head = nn.Linear(hidden_dim, n_intent_clusters)
-        self.implication_head = nn.Linear(hidden_dim + n_targets + n_intent_clusters, n_implication_clusters)
+    def forward(self, x_dict, edge_index_dict):
+        x0 = x_dict.copy()  # topic/claim are static providers, preserve originals
 
-    def forward(self, x, edge_index):
-        h = F.relu(self.conv1(x, edge_index))
-        h = F.dropout(h, p=0.3, training=self.training)
-        h = F.relu(self.conv2(h, edge_index))
+        out = self.conv1(x_dict, edge_index_dict)
+        x_dict = {**x0, **out}   # overwrite only comment
+        x_dict['comment'] = F.relu(F.dropout(x_dict['comment'], p=0.3, training=self.training))
 
+        out = self.conv2(x_dict, edge_index_dict)
+        x_dict = {**x0, **out}   # again overwrite only comment
+        x_dict['comment'] = F.relu(x_dict['comment'])
+
+        h = x_dict['comment']
         target_logits = self.target_head(h)
         intent_logits = self.intent_head(h)
-
-        target_probs = torch.sigmoid(target_logits)
-        intent_probs = F.softmax(intent_logits, dim=-1)
-        implication_input = torch.cat([h, target_probs, intent_probs], dim=-1)
-        implication_logits = self.implication_head(implication_input)
-
-        return target_logits, intent_logits, implication_logits
+        target_probs  = torch.sigmoid(target_logits)
+        intent_probs  = F.softmax(intent_logits, dim=-1)
+        impl_logits   = self.implication_head(
+            torch.cat([h, target_probs, intent_probs], dim=-1)
+        )
+        return target_logits, intent_logits, impl_logits

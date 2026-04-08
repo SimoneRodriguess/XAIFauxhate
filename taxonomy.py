@@ -101,6 +101,8 @@ taxonomy = {
     'n_implication_clusters': N_IMPLICATION_CLUSTERS,
     'intent_cluster_representatives': {str(k): v for k, v in intent_reps.items()},
     'implication_cluster_representatives': {str(k): v for k, v in implication_reps.items()},
+    'intent_centroids': intent_kmeans.cluster_centers_.tolist(),
+    'implication_centroids': implication_kmeans.cluster_centers_.tolist(),
     'normalize_map': {k: v for k, v in NORMALIZE.items() if v is not None},
     'drop_entities': [k for k, v in NORMALIZE.items() if v is None],
 }
@@ -119,3 +121,4 @@ with open(OUTPUT_DIR + 'labels.json', 'w') as f:
 
 print(f"\nFinal entity count: {len(target_entities)}")
 print("Saved taxonomy.json and labels.json")
+# NOTE: run taxonomy.py fresh after this patch — adds centroid saving
