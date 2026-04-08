@@ -3,25 +3,29 @@ import json
 import numpy as np
 import torch
 from torch_geometric.data import Data
-from sentence_transformers import SentenceTransformer
+from hinglish_encoder import HingBERTEncoder
 
 DATA_PATH = '/home/imone/hatemirage/HateMirage Sample Data.xlsx'
 TAXONOMY_PATH = '/home/imone/hatemirage/taxonomy.json'
 LABELS_PATH = '/home/imone/hatemirage/labels.json'
 OUTPUT_PATH = '/home/imone/hatemirage/graph.pt'
-MODEL_NAME = 'sentence-transformers/all-mpnet-base-v2'
+FINETUNED_PATH = '/home/imone/hatemirage/hinglish_bert_finetuned'
+
 SIM_THRESHOLD = 0.7
 TOP_K = 5
 
 df = pd.read_excel(DATA_PATH)
+
 with open(TAXONOMY_PATH) as f:
     taxonomy = json.load(f)
 with open(LABELS_PATH) as f:
     labels = json.load(f)
 
-model = SentenceTransformer(MODEL_NAME)
+model = HingBERTEncoder(model_name=FINETUNED_PATH)
+
 print("Encoding comments...")
 comment_embeddings = model.encode(df['Comments'].fillna('').tolist(), show_progress_bar=True)
+
 x = torch.tensor(comment_embeddings, dtype=torch.float)
 
 print("Building edges...")
