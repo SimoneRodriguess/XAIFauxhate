@@ -17,3 +17,4 @@ venv/
 
 # System
 .DS_Store
+hinglish_bert_finetuned/

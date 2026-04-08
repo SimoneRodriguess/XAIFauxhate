@@ -17,7 +17,7 @@ TARGET_THRESHOLD = 0.4
 SIM_THRESHOLD = 0.7
 TOP_K = 5
 
-device = torch.device('cuda')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 with open(TAXONOMY_PATH) as f:
     taxonomy = json.load(f)
@@ -30,6 +30,7 @@ n_intent = taxonomy['n_intent_clusters']
 n_implication = taxonomy['n_implication_clusters']
 
 encoder = HingBERTEncoder(model_name=SBERT_MODEL)
+
 data = torch.load(GRAPH_PATH, weights_only=False).to(device)
 gnn = GNNClassifier(data.x.shape[1], HIDDEN_DIM, n_targets, n_intent, n_implication)
 gnn.load_state_dict(torch.load(MODEL_PATH, map_location=device))
@@ -50,6 +51,7 @@ def gnn_predict(comment):
     existing = data.x.cpu().numpy()
     norms_exist = np.linalg.norm(existing, axis=1, keepdims=True)
     norms_new = np.linalg.norm(emb, axis=1, keepdims=True)
+
     sims = (existing / (norms_exist + 1e-8)) @ (emb / (norms_new + 1e-8)).T
     sims = sims.flatten()
 
@@ -62,7 +64,8 @@ def gnn_predict(comment):
     if neighbors:
         extra_edges = torch.tensor(
             [[new_node_idx] * len(neighbors), neighbors],
-            dtype=torch.long).to(device)
+            dtype=torch.long
+        ).to(device)
         new_edge_index = torch.cat([data.edge_index, extra_edges], dim=1)
     else:
         new_edge_index = data.edge_index
@@ -71,7 +74,11 @@ def gnn_predict(comment):
         target_logits, intent_logits, implication_logits = gnn(new_x, new_edge_index)
 
     target_probs = torch.sigmoid(target_logits[new_node_idx])
-    predicted_targets = [target_entities[i] for i, p in enumerate(target_probs) if p > TARGET_THRESHOLD]
+
+    predicted_targets = [
+        target_entities[i] for i, p in enumerate(target_probs) if p > TARGET_THRESHOLD
+    ]
+
     intent_cluster = intent_logits[new_node_idx].argmax().item()
     implication_cluster = implication_logits[new_node_idx].argmax().item()
 
@@ -80,6 +87,20 @@ def gnn_predict(comment):
         'intent_text': intent_reps[str(intent_cluster)],
         'implication_text': implication_reps[str(implication_cluster)],
     }
+
+def sbert_sim(a, b):
+    if not a or not b:
+        return 0.0
+
+    ea = torch.tensor(encoder.encode([a]), dtype=torch.float)
+    eb = torch.tensor(encoder.encode([b]), dtype=torch.float)
+
+    return util.cos_sim(ea, eb).item()
+
+def rouge_l(pred_text, gold_text):
+    if not pred_text or not gold_text:
+        return 0.0
+    return scorer.score(gold_text, pred_text)['rougeL'].fmeasure
 
 target_sbert, target_rouge = [], []
 intent_sbert, intent_rouge = [], []
@@ -92,20 +113,6 @@ for _, row in test_df.iterrows():
     gold_impl = str(row['Implication'])
 
     pred = gnn_predict(comment)
-
-    # SBERT similarities
-    def sbert_sim(a, b):
-        if not a or not b:
-            return 0.0
-        ea = encoder.encode(a, convert_to_tensor=True)
-        eb = encoder.encode(b, convert_to_tensor=True)
-        return util.cos_sim(ea, eb).item()
-
-    # ROUGE-L F1
-    def rouge_l(pred_text, gold_text):
-        if not pred_text or not gold_text:
-            return 0.0
-        return scorer.score(gold_text, pred_text)['rougeL'].fmeasure
 
     target_sbert.append(sbert_sim(pred['target_text'], gold_target))
     target_rouge.append(rouge_l(pred['target_text'], gold_target))
@@ -121,5 +128,6 @@ print(f"{'':15} {'SBERT':>8} {'ROUGE-L':>8}")
 print(f"{'Target':15} {np.mean(target_sbert)*100:>7.2f}% {np.mean(target_rouge)*100:>7.2f}%")
 print(f"{'Intent':15} {np.mean(intent_sbert)*100:>7.2f}% {np.mean(intent_rouge)*100:>7.2f}%")
 print(f"{'Implication':15} {np.mean(impl_sbert)*100:>7.2f}% {np.mean(impl_rouge)*100:>7.2f}%")
+
 print("\n(Paper's best zero-shot: Target SBERT=65.55%, ROUGE=50.36%)")
 print("(Paper's best RAG:       Target SBERT=63.65%, ROUGE=47.81%)")
