@@ -16,7 +16,7 @@ Now (HingBERT):
 Comment → HingBERT → token embeddings → mean pooling → embedding
 
 -> Results (HingBERT Branch)
-             SBERT   ROUGE-L  
+             HingBERT scores   ROUGE-L  
 
 Target       86.27% 34.83%
 Intent       89.41% 33.72%
