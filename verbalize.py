@@ -5,18 +5,19 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from sentence_transformers import SentenceTransformer
 from model import GNNClassifier, compute_khop_edge_index
 
-TAXONOMY_PATH = '/home/imone/hatemirage/taxonomy.json'
-GRAPH_PATH    = '/home/imone/hatemirage/graph.pt'
-MODEL_PATH    = '/home/imone/hatemirage/model.pt'
-SBERT_MODEL   = 'sentence-transformers/all-mpnet-base-v2'
-PHI3_MODEL    = 'microsoft/Phi-3-mini-4k-instruct'
-HIDDEN_DIM    = 256
+TAXONOMY_PATH    = '/home/imone/hatemirage/taxonomy.json'
+GRAPH_PATH       = '/home/imone/hatemirage/graph.pt'
+MODEL_PATH       = '/home/imone/hatemirage/model.pt'
+SBERT_MODEL      = 'sentence-transformers/all-mpnet-base-v2'
+PHI3_MODEL       = 'microsoft/Phi-3-mini-4k-instruct'
+HIDDEN_DIM       = 256
 TARGET_THRESHOLD = 0.4
-SIM_THRESHOLD = 0.7
-TOP_K         = 5
+SIM_THRESHOLD    = 0.7
+TOP_K            = 5
 
 device = torch.device('cuda')
 
+# Load Taxonomy
 with open(TAXONOMY_PATH) as f:
     taxonomy = json.load(f)
 
@@ -40,7 +41,7 @@ gnn = GNNClassifier(
     num_nodes=data.x.shape[0],
     edge_index_1hop=data.edge_index,
 )
-gnn.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+gnn.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=True))
 gnn  = gnn.to(device).eval()
 data = data.to(device)
 
@@ -51,11 +52,21 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True,
     bnb_4bit_quant_type='nf4',
 )
+
 tokenizer = AutoTokenizer.from_pretrained(PHI3_MODEL)
-phi3      = AutoModelForCausalLM.from_pretrained(
-    PHI3_MODEL, quantization_config=bnb_config,
-    device_map='cuda', trust_remote_code=True)
-print("Phi-3 loaded")
+
+# FIX: trust_remote_code=False uses the library's official, maintained Phi-3 code.
+# FIX: device_map="cuda:0" prevents the model.to() error with bitsandbytes.
+phi3 = AutoModelForCausalLM.from_pretrained(
+    PHI3_MODEL,
+    quantization_config=bnb_config,
+    device_map="cuda:0", 
+    trust_remote_code=False, 
+    attn_implementation='eager',
+    torch_dtype=torch.float16,
+)
+phi3.eval()
+print("Phi-3 loaded successfully.")
 
 def gnn_predict(comment):
     emb        = encoder.encode([comment])
@@ -93,15 +104,16 @@ def gnn_predict(comment):
 
     tp      = torch.sigmoid(tl[new_node_idx])
     targets = [target_entities[i] for i, p in enumerate(tp) if p > TARGET_THRESHOLD]
+    
     return {
-        'targets':          targets if targets else ['unspecified group'],
-        'intent_label':     intent_reps[str(il[new_node_idx].argmax().item())],
+        'targets':           targets if targets else ['unspecified group'],
+        'intent_label':      intent_reps[str(il[new_node_idx].argmax().item())],
         'implication_label': implication_reps[str(ml[new_node_idx].argmax().item())],
     }
 
 def verbalize(comment, gnn_output):
     prompt = f"""<|user|>
-You are an expert in hate speech analysis. Given a faux hate comment and its structured analysis, write concise one-sentence explanations for Intent and Implication.
+You are an expert in hate speech analysis. Given a hate comment and its structured analysis, write concise one-sentence explanations for Intent and Implication.
 
 Comment: "{comment}"
 Target: {', '.join(gnn_output['targets'])}
@@ -117,10 +129,12 @@ Implication: [one sentence describing the societal impact, mentioning the target
     inputs = tokenizer(prompt, return_tensors='pt').to(device)
     with torch.no_grad():
         outputs = phi3.generate(
-            **inputs, max_new_tokens=100, do_sample=False,
-            temperature=1.0, pad_token_id=tokenizer.eos_token_id)
-    return tokenizer.decode(
-        outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True).strip()
+            **inputs,
+            max_new_tokens=100,
+            do_sample=False,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    return tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True).strip()
 
 def run(comment):
     out  = gnn_predict(comment)
@@ -131,6 +145,7 @@ def run(comment):
     print(f"GNN Impl:    {out['implication_label']}")
     print(f"Phi-3:\n{text}")
 
-run("Tablighi Jamaat is responsible for spreading COVID all over India.")
-run("China created this virus in a lab to destroy the world economy.")
-run("These immigrants are taking over our country and our jobs.")
+if __name__ == "__main__":
+    run("Tablighi Jamaat is responsible for spreading COVID all over India.")
+    run("China created this virus in a lab to destroy the world economy.")
+    run("These immigrants are taking over our country and our jobs.")
