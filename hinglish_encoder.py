@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
 class HingBERTEncoder(nn.Module):
-    def __init__(self, model_name="l3cube-pune/hinglish-bert", device=None):
+    def __init__(self, model_name="l3cube-pune/hing-bert", device=None):
         super().__init__()
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
