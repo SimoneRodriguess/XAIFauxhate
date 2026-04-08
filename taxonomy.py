@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 import numpy as np
-from hinglish_encoder import HingBERTEncoder
+from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from collections import Counter
 
@@ -9,7 +9,7 @@ DATA_PATH = '/home/imone/hatemirage/HateMirage Sample Data.xlsx'
 OUTPUT_DIR = '/home/imone/hatemirage/'
 N_INTENT_CLUSTERS = 8
 N_IMPLICATION_CLUSTERS = 8
-MODEL_NAME = '/home/imone/hatemirage/hinglish_bert_finetuned'
+MODEL_NAME = 'sentence-transformers/all-mpnet-base-v2'
 
 NORMALIZE = {
     'Tablighi': 'Tablighi Jamaat',
@@ -56,7 +56,7 @@ for t in df['Target'].fillna(''):
         vec[target_to_idx[e]] = 1
     target_labels.append(vec)
 
-model = HingBERTEncoder(model_name=MODEL_NAME)
+model = SentenceTransformer(MODEL_NAME)
 
 intent_texts = df['Intent'].fillna('').tolist()
 implication_texts = df['Implication'].fillna('').tolist()
@@ -101,8 +101,6 @@ taxonomy = {
     'n_implication_clusters': N_IMPLICATION_CLUSTERS,
     'intent_cluster_representatives': {str(k): v for k, v in intent_reps.items()},
     'implication_cluster_representatives': {str(k): v for k, v in implication_reps.items()},
-    'intent_centroids': intent_kmeans.cluster_centers_.tolist(),
-    'implication_centroids': implication_kmeans.cluster_centers_.tolist(),
     'normalize_map': {k: v for k, v in NORMALIZE.items() if v is not None},
     'drop_entities': [k for k, v in NORMALIZE.items() if v is None],
 }
@@ -121,4 +119,3 @@ with open(OUTPUT_DIR + 'labels.json', 'w') as f:
 
 print(f"\nFinal entity count: {len(target_entities)}")
 print("Saved taxonomy.json and labels.json")
-# NOTE: run taxonomy.py fresh after this patch — adds centroid saving
