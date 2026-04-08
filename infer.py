@@ -1,13 +1,13 @@
 import torch
 import json
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from hinglish_encoder import HingBERTEncoder
 from model import GNNClassifier
 
 TAXONOMY_PATH = '/home/imone/hatemirage/taxonomy.json'
 GRAPH_PATH = '/home/imone/hatemirage/graph.pt'
 MODEL_PATH = '/home/imone/hatemirage/model.pt'
-MODEL_NAME = 'sentence-transformers/all-mpnet-base-v2'
+MODEL_NAME = '/home/imone/hatemirage/hinglish_bert_finetuned'
 HIDDEN_DIM = 256
 SIM_THRESHOLD = 0.7
 TOP_K = 5
@@ -24,7 +24,7 @@ n_targets = len(target_entities)
 n_intent = taxonomy['n_intent_clusters']
 n_implication = taxonomy['n_implication_clusters']
 
-encoder = SentenceTransformer(MODEL_NAME)
+encoder = HingBERTEncoder(model_name=MODEL_NAME)
 data = torch.load(GRAPH_PATH, weights_only=False)
 
 model = GNNClassifier(

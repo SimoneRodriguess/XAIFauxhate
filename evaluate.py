@@ -2,7 +2,8 @@ import torch
 import json
 import numpy as np
 import pandas as pd
-from sentence_transformers import SentenceTransformer, util
+from hinglish_encoder import HingBERTEncoder
+from sentence_transformers import util
 from rouge_score import rouge_scorer
 from model import GNNClassifier
 
@@ -10,7 +11,7 @@ DATA_PATH = '/home/imone/hatemirage/HateMirage Sample Data.xlsx'
 TAXONOMY_PATH = '/home/imone/hatemirage/taxonomy.json'
 GRAPH_PATH = '/home/imone/hatemirage/graph.pt'
 MODEL_PATH = '/home/imone/hatemirage/model.pt'
-SBERT_MODEL = 'sentence-transformers/all-mpnet-base-v2'
+SBERT_MODEL = '/home/imone/hatemirage/hinglish_bert_finetuned'
 HIDDEN_DIM = 256
 TARGET_THRESHOLD = 0.4
 SIM_THRESHOLD = 0.7
@@ -28,7 +29,7 @@ n_targets = len(target_entities)
 n_intent = taxonomy['n_intent_clusters']
 n_implication = taxonomy['n_implication_clusters']
 
-encoder = SentenceTransformer(SBERT_MODEL)
+encoder = HingBERTEncoder(model_name=SBERT_MODEL)
 data = torch.load(GRAPH_PATH, weights_only=False).to(device)
 gnn = GNNClassifier(data.x.shape[1], HIDDEN_DIM, n_targets, n_intent, n_implication)
 gnn.load_state_dict(torch.load(MODEL_PATH, map_location=device))

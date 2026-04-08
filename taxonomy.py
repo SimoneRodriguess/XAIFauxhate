@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from hinglish_encoder import HingBERTEncoder
 from sklearn.cluster import KMeans
 from collections import Counter
 
@@ -9,7 +9,7 @@ DATA_PATH = '/home/imone/hatemirage/HateMirage Sample Data.xlsx'
 OUTPUT_DIR = '/home/imone/hatemirage/'
 N_INTENT_CLUSTERS = 8
 N_IMPLICATION_CLUSTERS = 8
-MODEL_NAME = 'sentence-transformers/all-mpnet-base-v2'
+MODEL_NAME = '/home/imone/hatemirage/hinglish_bert_finetuned'
 
 NORMALIZE = {
     'Tablighi': 'Tablighi Jamaat',
@@ -56,7 +56,7 @@ for t in df['Target'].fillna(''):
         vec[target_to_idx[e]] = 1
     target_labels.append(vec)
 
-model = SentenceTransformer(MODEL_NAME)
+model = HingBERTEncoder(model_name=MODEL_NAME)
 
 intent_texts = df['Intent'].fillna('').tolist()
 implication_texts = df['Implication'].fillna('').tolist()
